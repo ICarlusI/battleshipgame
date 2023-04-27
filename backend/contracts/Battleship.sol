@@ -41,7 +41,7 @@ contract Battleship {
 
 function joinGame() external {
     require(player2 == address(0), "Game is already full.");
-    require(msg.sender != player1, "You are already player 1."); // Ajoutez cette ligne
+    require(msg.sender != player1, "You are already player 1."); 
     player2 = msg.sender;
     emit PlayerJoined(msg.sender);
 }

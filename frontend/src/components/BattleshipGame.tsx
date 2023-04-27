@@ -291,7 +291,6 @@ const [playersJoined, setPlayersJoined] = useState(false);
   
     const onAttackResult = (attacker, index, hit, sunk) => {
       console.log(`Attack result: attacker=${attacker}, index=${index}, hit=${hit}, sunk=${sunk}`);
-      // Mettez à jour l'état de l'interface utilisateur ici, si nécessaire
     };
 
   
@@ -318,7 +317,6 @@ const [playersJoined, setPlayersJoined] = useState(false);
     
     contract.on("PlayerReady", onPlayerReady);
   
-    // Nettoyez l'écouteur d'événement lorsque le composant est démonté
     return () => {
       contract.off("Turn", onTurn);
       contract.off("AttackResult", onAttackResult);
@@ -331,7 +329,6 @@ const [playersJoined, setPlayersJoined] = useState(false);
     
   }, [contract]);
 
-  // Votre logique d'affichage et d'interaction avec le contrat ici
 return (
     <div>
         <button onClick={joinGame} disabled={playersJoined}>

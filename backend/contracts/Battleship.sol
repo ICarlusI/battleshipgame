@@ -27,7 +27,7 @@ contract Battleship {
     event GameStarted(address player1, address player2);
     event PlayerReady(address player);
     event Turn(address currentPlayer);
-    event AttackResult(address attacker, uint index, bool hit, bool sunk);
+    event AttackResult(address attacker, uint index, bool hit, bool sunk, Ship shipInfo);
     event GameOver(address winner);
 
     mapping(address => bool) public playersReady;
@@ -89,7 +89,7 @@ function joinGame() external {
     return player1 != address(0) && player2 != address(0);
 }
 
-    function attack(uint index) external {
+     function attack(uint index) external {
         require(gameStarted, "Game not started yet.");
         require(msg.sender == currentPlayer, "Not your turn.");
 
@@ -122,7 +122,13 @@ function joinGame() external {
             }
         }
 
-        emit AttackResult(msg.sender, index, hit, sunk);
+        // Masquer les détails du navire pour les autres joueurs
+        if (msg.sender != opponent) {
+            Ship memory hiddenShip = Ship("Hidden", 0, false, 0, 0);
+            emit AttackResult(msg.sender, index, hit, sunk, hiddenShip);
+        } else {
+            emit AttackResult(msg.sender, index, hit, sunk, opponentData.ships[shipIndex - 1]);
+        }
 
         if (!hit) {
             currentPlayer = opponent;

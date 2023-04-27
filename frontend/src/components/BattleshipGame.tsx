@@ -10,7 +10,7 @@ import { PlayerData } from "../interfaces/PlayerData";
 
 
 function BattleshipGame() {
-  const contractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"; // Adresse du contrat déployé
+  const contractAddress = "0x5FbDB2315678afecb367f032d93F642f64180aa3"; // Adresse du contrat déployé
   const contract = useGetContractBattle(contractAddress);
     const [playerData, setPlayerData] = useState<PlayerData>({
       grid: [],
@@ -73,6 +73,10 @@ const [playersJoined, setPlayersJoined] = useState(false);
 
     const [selectedShips, setSelectedShips] = useState<Ship[]>([]);
     const [readyPlayers, setReadyPlayers] = useState(0);
+    const [readyPlayersSet, setReadyPlayersSet] = useState(new Set());
+
+    const [attackerIndex, setAttackerIndex] = useState<number | null>(null);
+    const [currentPlayer, setCurrentPlayer] = useState<string | null>(null);
 
     const [currentTurnPlayer, setCurrentTurnPlayer] = useState<null | string>(null);
     const [attackedCells, setAttackedCells] = useState<number[]>([]);
@@ -188,16 +192,74 @@ const [playersJoined, setPlayersJoined] = useState(false);
     });
   }
   
-  async function attack(cellIndex) {
-  if (!contract || playersJoined) return;
+  async function attack(cellIndex, attackerIndex) {
+    if (!contract || !playersJoined || currentPlayer !== window.ethereum.selectedAddress) return;
+  
     try {
-      const tx = await contract.attack(cellIndex);
+      const result = await contract.callStatic.attack(cellIndex, attackerIndex);
+      const hit = result.hit;
+      const sunk = result.sunk;
+  
+      if (hit) {
+        console.log("Hit!");
+  
+        // Mettre à jour la grille du joueur avec le résultat de l'attaque
+        setPlayerData((prevData) => {
+          const newGrid = [...prevData.grid];
+          newGrid[cellIndex] = 2; // 2 pour indiquer un coup réussi
+          return { ...prevData, grid: newGrid };
+        });
+  
+        if (sunk) {
+          console.log("Sunk!");
+        }
+      } else {
+        console.log("Miss!");
+  
+        // Mettre à jour la grille du joueur avec le résultat de l'attaque
+        setPlayerData((prevData) => {
+          const newGrid = [...prevData.grid];
+          newGrid[cellIndex] = 3; // 3 pour indiquer un coup manqué
+          return { ...prevData, grid: newGrid };
+        });
+      }
+      
+      // Envoyer la transaction
+      const tx = await contract.attack(cellIndex,attackerIndex);
       await tx.wait();
       setAttackedCells((prev) => [...prev, cellIndex]);
+  
+      // Si le coup est manqué, passer le tour à l'autre joueur
+      if (!hit) {
+        setCurrentTurnPlayer((prevPlayer) =>
+          prevPlayer === contract.player1() ? contract.player2() : contract.player1()
+        );
+      }
     } catch (error) {
       console.error("Error attacking:", error);
     }
   }
+  
+  const ClickableCell: React.FC<{
+    index: number;
+    onClick: (index: number) => void;
+  }> = ({ index, onClick }) => {
+    const handleClick = () => {
+      onClick(index);
+    };
+  
+    return (
+      <div
+        onClick={handleClick}
+        style={{
+          width: 30,
+          height: 30,
+          border: "1px solid #ccc",
+          cursor: "pointer",
+        }}
+      />
+    );
+  };
 
   function renderGrid() {
     const cells = [];
@@ -245,16 +307,29 @@ const [playersJoined, setPlayersJoined] = useState(false);
       for (let col = 0; col < 10; col++) {
         const i = row * 10 + col;
   
-        cells.push(
-          <Grid item key={i}>
-            <DroppableCell
-              index={i}
-              onDrop={(ship) => {
-                placeShip(i, ship);
-              }}
-            />
-          </Grid>
+        if (readyPlayers === 2) {
+          cells.push(
+            <Grid item key={i}>
+              <ClickableCell
+                index={i}
+                onClick={(index) => {
+                  attack(index, attackerIndex);
+                }}
+              />
+            </Grid>
+          );
+        } else {
+          cells.push(
+            <Grid item key={i}>
+              <DroppableCell
+                index={i}
+                onDrop={(ship) => {
+                  placeShip(i, ship);
+                }}
+              />
+            </Grid>
         );
+  }
       }
     }
   
@@ -267,26 +342,46 @@ const [playersJoined, setPlayersJoined] = useState(false);
     );
   }
   
+  const [isPlayerReady, setIsPlayerReady] = useState(false);
+
   async function handleReadyClick() {
-    if (!contract || !playerData.ships.every(ship => availableShips.some(availableShip => availableShip.shipType === ship.shipType))) return;
+    if (
+      !contract ||
+      !playerData.ships.every((ship) =>
+        availableShips.some(
+          (availableShip) => availableShip.shipType === ship.shipType
+        )
+      ) ||
+      isPlayerReady
+    )
+      return;
   
     try {
       const tx = await contract.setPlayerReady();
       await tx.wait();
       setReadyPlayers((prev) => prev + 1);
+      setIsPlayerReady(true);
     } catch (error) {
       console.error("Error setting player ready:", error);
     }
   }
   
+  function onPlayerReady(playerAddress) {
+    if (!readyPlayersSet.has(playerAddress)) {
+      readyPlayersSet.add(playerAddress);
+      setReadyPlayers((prevReadyPlayers) => prevReadyPlayers + 1);
+    }
+  }
 
   useEffect(() => {
     if (!contract) return;
 
     checkPlayersJoined();
-    const onTurn = (player) => {
-      console.log("New turn:", player);
+    const onTurn = (player, attackerIndex) => {
+      console.log("New turn:", player, attackerIndex);
       setCurrentTurnPlayer(player);
+      setCurrentPlayer(window.ethereum.selectedAddress);
+      setAttackerIndex(attackerIndex);
     };
   
     const onAttackResult = (attacker, index, hit, sunk) => {
@@ -298,7 +393,7 @@ const [playersJoined, setPlayersJoined] = useState(false);
       console.log("Game over, winner:", winner);
       setWinner(winner);
     };
-  
+
     contract.on("Turn", onTurn);
     contract.on("AttackResult", onAttackResult);
     contract.on("GameOver", onGameOver);
@@ -327,7 +422,7 @@ const [playersJoined, setPlayersJoined] = useState(false);
 
     };
     
-  }, [contract]);
+  }, [contract,checkPlayersJoined]);
 
 return (
     <div>
@@ -383,4 +478,5 @@ return (
     </div>
 );
 }
+
 export default BattleshipGame;

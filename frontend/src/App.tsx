@@ -12,7 +12,7 @@ function App(): ReactElement {
     const [selectedImage, setSelectedImage] = useState()
     const [candidates, setCandidates] = useState([])
     const [candidateFormData, setCandidateFormData] = useState({ name: '', imageHash: '' })
-    const contractAddress = "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9"
+    const contractAddress = "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6"
 
     useEffect(() => {
         setContract(getContract(contractAddress))

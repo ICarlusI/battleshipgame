@@ -1,0 +1,17 @@
+/* Battleship.css */
+.cell {
+  width: 30px;
+  height: 30px;
+  border: 1px solid #ccc;
+  display: inline-block;
+  box-sizing: border-box;
+  position: relative;
+}
+
+.attacked {
+  background-color: red;
+}
+
+.ship {
+  background-color: #2e7d32; /* Couleur de votre choix pour les navires */
+}

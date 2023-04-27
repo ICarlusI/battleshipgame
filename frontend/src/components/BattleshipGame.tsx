@@ -366,6 +366,7 @@ const [playersJoined, setPlayersJoined] = useState(false);
     }
   }
   
+  
   function onPlayerReady(playerAddress) {
     if (!readyPlayersSet.has(playerAddress)) {
       readyPlayersSet.add(playerAddress);
